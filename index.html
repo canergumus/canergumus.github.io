@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caner Gümüş — Terminal</title>
+<meta name="description" content="Caner Gümüş — Product Lead @ Softtech. GenAI, Agentic AI & Data Products. An interactive terminal resume.">
+<meta property="og:title" content="Caner Gümüş — Product Lead">
+<meta property="og:description" content="GenAI, Agentic AI & Data Products · 15+ years building products in travel, e-commerce and fintech.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050a06;
+    --bg-2: #0b140d;
+    --fg: #39ff7a;
+    --fg-dim: #1f9c4a;
+    --fg-bright: #c8ffd9;
+    --accent: #ffd166;
+    --err: #ff5f6d;
+    --glow: rgba(57, 255, 122, .55);
+    --font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme="amber"] {
+    --bg: #0d0802; --bg-2: #171006;
+    --fg: #ffb000; --fg-dim: #a86f00; --fg-bright: #ffe2a3;
+    --accent: #ff6b35; --glow: rgba(255, 176, 0, .5);
+  }
+  :root[data-theme="blue"] {
+    --bg: #020812; --bg-2: #07122a;
+    --fg: #5fd7ff; --fg-dim: #2f7fa8; --fg-bright: #d6f4ff;
+    --accent: #ff79c6; --glow: rgba(95, 215, 255, .5);
+  }
+  :root[data-theme="mono"] {
+    --bg: #0a0a0a; --bg-2: #151515;
+    --fg: #e6e6e6; --fg-dim: #8a8a8a; --fg-bright: #ffffff;
+    --accent: #f5f5f5; --glow: rgba(255, 255, 255, .35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(ellipse at center, var(--bg-2) 0%, var(--bg) 70%) fixed, var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.55;
+    overflow: hidden;
+    transition: background .4s, color .4s;
+  }
+
+  /* ---------- CRT shell ---------- */
+  #crt {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+    max-width: 1100px; margin: 0 auto;
+  }
+  #window {
+    position: relative; flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    border: 1px solid color-mix(in srgb, var(--fg) 25%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 40px color-mix(in srgb, var(--fg) 12%, transparent), inset 0 0 120px rgba(0,0,0,.75);
+    overflow: hidden;
+  }
+  #titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+    color: var(--fg-dim); font-size: 12px; user-select: none;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; opacity: .85; }
+  .dot.r { background: #ff5f57; } .dot.y { background: #febc2e; } .dot.g { background: #28c840; }
+  #titlebar .title { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #plainBtn {
+    font: inherit; font-size: 12px; color: var(--fg); background: transparent;
+    border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent); border-radius: 6px;
+    padding: 2px 8px; cursor: pointer;
+  }
+  #plainBtn:hover { background: color-mix(in srgb, var(--fg) 15%, transparent); }
+
+  #screen {
+    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+    padding: 14px 18px 18px;
+    text-shadow: 0 0 4px var(--glow), 0 0 1px var(--fg);
+    scrollbar-width: thin; scrollbar-color: var(--fg-dim) transparent;
+    cursor: text;
+  }
+  #screen::-webkit-scrollbar { width: 8px; }
+  #screen::-webkit-scrollbar-thumb { background: var(--fg-dim); border-radius: 4px; }
+
+  /* scanlines + flicker + vignette */
+  #window::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,0,0,.22) 3px);
+  }
+  #window::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 6;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.55) 100%);
+    animation: flicker 6s infinite steps(1);
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; } 47% { opacity: .92; } 48% { opacity: 1; } 82% { opacity: .95; } 83% { opacity: 1; }
+  }
+  .sweep {
+    position: absolute; left: 0; right: 0; height: 120px; top: -120px; pointer-events: none; z-index: 4;
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--fg) 6%, transparent), transparent);
+    animation: sweep 7s linear infinite;
+  }
+  @keyframes sweep { to { top: 110%; } }
+
+  /* ---------- output ---------- */
+  .line { white-space: pre-wrap; word-break: break-word; min-height: 1.55em; animation: in .18s ease-out; }
+  @keyframes in { from { opacity: 0; transform: translateX(-4px); } }
+  .dim { color: var(--fg-dim); }
+  .bright { color: var(--fg-bright); font-weight: 700; }
+  .accent { color: var(--accent); }
+  .err { color: var(--err); }
+  .ok { color: var(--fg-bright); }
+  .ps1 { color: var(--accent); }
+  .ps1 .path { color: var(--fg); }
+  a { color: var(--fg-bright); text-decoration: underline dotted; text-underline-offset: 3px; }
+  a:hover { background: var(--fg); color: var(--bg); text-shadow: none; }
+  .cmd { color: var(--fg-bright); cursor: pointer; border-bottom: 1px dashed var(--fg-dim); }
+  .cmd:hover { background: var(--fg); color: var(--bg); text-shadow: none; }
+  .pt { padding-left: 4ch; text-indent: -2ch; white-space: normal; }
+  .indent { padding-left: 2ch; white-space: normal; }
+  .ascii { white-space: pre; line-height: 1.15; overflow-x: auto; overflow-y: hidden; }
+  .scroll-x { white-space: pre; overflow-x: auto; overflow-y: hidden; }
+  .banner { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow), 0 0 18px var(--glow); }
+  .tag {
+    display: inline-block; border: 1px solid var(--fg-dim); border-radius: 4px;
+    padding: 0 6px; margin: 2px 4px 2px 0; line-height: 1.5;
+  }
+  .swatch { display: inline-block; width: 2.2ch; height: 1em; vertical-align: -2px; margin-right: 2px; }
+
+  /* ---------- prompt ---------- */
+  #prompt { position: relative; white-space: pre-wrap; word-break: break-all; }
+  #prompt.waiting { visibility: hidden; }
+  #cmd {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; /* 16px: no iOS zoom */
+    background: transparent; color: transparent; caret-color: transparent; outline: none;
+  }
+  .cursor { background: var(--fg); color: var(--bg); text-shadow: none; animation: blink 1.05s steps(1) infinite; }
+  #prompt:not(.focused) .cursor { background: transparent; color: inherit; outline: 1px solid var(--fg); animation: none; }
+  @keyframes blink { 50% { background: transparent; color: inherit; } }
+
+  /* ---------- chips ---------- */
+  #chips {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    padding: 12px 0 0;
+  }
+  #chips button {
+    font: inherit; font-size: 13px; color: var(--fg); background: color-mix(in srgb, var(--bg) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent); border-radius: 999px;
+    padding: 5px 12px; cursor: pointer; text-shadow: 0 0 4px var(--glow);
+    transition: transform .15s, background .15s, color .15s;
+  }
+  #chips button:hover, #chips button:focus-visible { background: var(--fg); color: var(--bg); text-shadow: none; transform: translateY(-2px); outline: none; }
+  #chips button::before { content: "$ "; opacity: .55; }
+
+  /* ---------- fx layers ---------- */
+  #matrix { position: fixed; inset: 0; z-index: 50; display: none; background: #000; }
+  .confetti { position: fixed; top: -2em; z-index: 60; pointer-events: none; font-weight: 700; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translate(var(--dx), 110vh) rotate(var(--rot)); opacity: .9; } }
+  body.glitch #window { animation: glitch .35s steps(2) 2; }
+  @keyframes glitch {
+    0% { transform: translate(0); filter: none; }
+    25% { transform: translate(-3px, 1px); filter: hue-rotate(60deg); }
+    50% { transform: translate(3px, -1px) skewX(-2deg); }
+    75% { transform: translate(-1px, 2px); filter: hue-rotate(-60deg) saturate(2); }
+    100% { transform: translate(0); filter: none; }
+  }
+
+  /* ---------- plain view ---------- */
+  #plain {
+    position: fixed; inset: 0; z-index: 100; display: none; overflow-y: auto;
+    background: #f6f5f1; color: #1d1d1b; text-shadow: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.6;
+  }
+  #plain.open { display: block; animation: in .25s ease-out; }
+  #plain .wrap { max-width: 780px; margin: 0 auto; padding: 32px 20px 64px; }
+  #plain .bar { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
+  #plain .bar button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid #c9c6bd; background: #fff; color: #1d1d1b;
+  }
+  #plain h1 { font-size: 34px; margin: 8px 0 2px; letter-spacing: -.02em; }
+  #plain .sub { color: #55534d; margin: 0; }
+  #plain .contact { margin: 10px 0 0; font-size: 14px; }
+  #plain .contact a { color: #1a6b3c; background: none; }
+  #plain h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #1a6b3c; margin: 32px 0 10px; border-bottom: 1px solid #dedbd2; padding-bottom: 6px; }
+  #plain .job { margin: 0 0 18px; break-inside: avoid; }
+  #plain .job-h { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  #plain .job-h b { font-size: 16px; }
+  #plain .when { color: #6b685f; font-size: 13px; white-space: nowrap; }
+  #plain ul { margin: 6px 0 0; padding-left: 20px; }
+  #plain li { margin: 2px 0; }
+  #plain p { margin: 6px 0; }
+
+  @media (max-width: 640px) {
+    body { font-size: 13px; }
+    #crt { padding-left: 10px; padding-right: 10px; }
+    #screen { padding: 10px 12px 14px; }
+    #titlebar .title { font-size: 11px; }
+    #chips { gap: 6px; padding-top: 10px; }
+    #chips button { font-size: 12px; padding: 4px 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #window::after, .sweep, .line, .cursor { animation: none !important; }
+  }
+  @media print {
+    body { overflow: visible; background: #fff; }
+    #crt, #matrix, .confetti { display: none !important; }
+    #plain { display: block !important; position: static; overflow: visible; background: #fff; }
+    #plain .bar { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="crt">
+  <div id="window">
+    <div class="sweep" aria-hidden="true"></div>
+    <div id="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">visitor@caner: ~ — zsh — 80×24</span>
+      <button id="plainBtn" type="button" title="Readable, printable version">plain view</button>
+    </div>
+    <div id="screen" role="log" aria-live="polite">
+      <div id="out"></div>
+      <div id="prompt" class="waiting"><span class="ps1">visitor@caner<span class="dim">:</span><span class="path">~</span><span class="dim">$</span></span> <span id="typed"></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal command"></div>
+    </div>
+  </div>
+  <nav id="chips" aria-label="Quick commands"></nav>
+</div>
+<canvas id="matrix" aria-hidden="true"></canvas>
+<div id="plain" role="dialog" aria-label="Plain resume"></div>
+
+<script>
+/* =====================================================================
+   RESUME DATA — edit this block to update the site
+   ===================================================================== */
+const DATA = {
+  name: "Caner Gümüş",
+  title: "Product Lead @ Softtech",
+  tagline: "GenAI, Agentic AI & Data Products · MSc, PSPO, PAL",
+  location: "Istanbul, Türkiye",
+  email: "caner.gumus@softtech.com.tr",
+  linkedin: "https://www.linkedin.com/in/cgumus",
+  careerStart: "2005-06",
+  summary: [
+    "15+ years creating and launching products across travel, e-commerce and fintech.",
+    "Today I'm at Softtech (part of the Türkiye İş Bankası group), leading a team of analysts, engineers and designers building Generative AI, Agentic AI and data products.",
+    "I work with agile methods and data-driven decisions to take products from discovery to go-to-market, and I care about building things that solve real problems and make a positive difference."
+  ],
+  highlights: [
+    ["+50% revenue, +75% CSAT", "API product strategy at Metglobal, within the first year"],
+    ["0 → thousands of tickets/day", "product launch at obilet.com (15M monthly visitors)"],
+    ["1,000+ sales/day", "flight booking app at Teknasyon, in year one"],
+    ["+30% customer satisfaction", "product updates & launches at Softtech"],
+    ["+20% new leads", "product discovery & market research at obilet.com"]
+  ],
+  experience: [
+    { company: "Softtech", role: "Product Lead — AI & Data Analytics", start: "2023-08", end: null, place: "Istanbul",
+      points: [
+        "Leading product development for Generative AI and data analytics solutions, driving innovation through market research and collaboration.",
+        "Defining product vision and roadmaps aligned with business goals and customer expectations.",
+        "Managing timelines and budgets, optimizing processes to improve delivery efficiency and outcomes."
+      ] },
+    { company: "Softtech", role: "Product Lead", start: "2022-03", end: "2023-08", place: "Istanbul",
+      points: [
+        "Ran market research to inform product development and positioning with cross-functional teams.",
+        "Defined product requirements with engineering and design for successful launches.",
+        "Achieved a 30% increase in customer satisfaction through product updates and launches."
+      ] },
+    { company: "obilet.com", role: "Product Lead", start: "2020-07", end: "2022-03", place: "Istanbul",
+      note: "Turkey's market leader in bus ticketing — 300+ bus firms on its SaaS, 15M visitors/month, 5M app downloads.",
+      points: [
+        "Led a 7-person product team toward simple, delightful, impactful solutions.",
+        "Spearheaded discovery and market research → 20% more new leads.",
+        "Rebuilt and prioritized an 80%-overhauled roadmap aligned with business strategy.",
+        "Took a project from zero to selling thousands of tickets daily."
+      ] },
+    { company: "Metglobal", role: "Product Manager", start: "2019-10", end: "2020-07", place: "Istanbul",
+      points: [
+        "Built an API product strategy that delivered +50% revenue and +75% customer satisfaction in year one.",
+        "Developed go-to-market plans for new API products from market research.",
+        "Owned docs, tutorials and resources to drive API adoption."
+      ] },
+    { company: "Travelbuild Teknoloji", role: "Product Owner", start: "2018-10", end: "2019-10", place: "Istanbul",
+      points: [
+        "Owned product vision, strategy and roadmap.",
+        "Led UX: user research, wireframes, prototypes and usability testing.",
+        "Used data to inform decisions and measure the impact of UX work."
+      ] },
+    { company: "Teknasyon", role: "Product Owner", start: "2017-10", end: "2018-10", place: "Istanbul",
+      points: [
+        "Launched several mobile apps, including a flight booking app that reached 1,000+ sales/day in its first year.",
+        "Defined roadmaps with engineering, design and marketing; built go-to-market plans."
+      ] },
+    { company: "BiletBank", role: "Product Manager", start: "2016-02", end: "2017-10", place: "Istanbul",
+      points: [
+        "Owned the full product: roadmap, milestones, feature prioritization and team coordination.",
+        "Shipped weekly iterative improvements measured against KPIs.",
+        "Led UX with A/B testing, heat maps and click-map tracking."
+      ] },
+    { company: "Vanilla Tours", role: "Sales & Marketing Director — Europe", start: "2010-12", end: "2016-02", place: "Istanbul",
+      points: ["Set strategic sales & marketing objectives, territories, quotas and budgets for Europe."] },
+    { company: "Vanilla Tours", role: "Sales Manager — Europe & North America", start: "2009-06", end: "2010-12", place: "Istanbul",
+      points: ["Built sales strategies and marketing budgets; represented the company at trade shows."] },
+    { company: "Vanilla Tours", role: "Marketing Supervisor", start: "2008-11", end: "2009-06", place: "Istanbul",
+      points: ["Led the department, including hiring and performance reviews."] },
+    { company: "Oxford Business Group", role: "Travel Coordinator", start: "2008-08", end: "2008-11", place: "Istanbul",
+      points: ["Planned and coordinated staff travel."] },
+    { company: "TUI", role: "Holiday Representative", start: "2005-06", end: "2008-08", place: "Fethiye, Muğla",
+      points: ["Customer care, group travel coordination and bookings."] }
+  ],
+  // Self-assessed levels (0–100) — tweak freely
+  skills: [
+    ["Product strategy & roadmaps", 95],
+    ["Generative & Agentic AI", 90],
+    ["Agile / Scrum (PSPO I, PAL)", 92],
+    ["Team leadership", 92],
+    ["Market & customer research", 90],
+    ["Go-to-market", 88],
+    ["Data analytics & big data", 85],
+    ["UX & design thinking", 85]
+  ],
+  tags: ["Generative AI", "Agentic AI", "Data Products", "Operations Management", "API Products", "Mobile Apps", "SaaS", "B2B / B2C", "A/B Testing", "Fintech", "Travel Tech", "E-commerce"],
+  education: [
+    { school: "Bahçeşehir University", degree: "MSc, Big Data Analytics and Management", years: "2020 – 2022" },
+    { school: "Muğla Sıtkı Koçman University", degree: "BBA, Travel Management", years: "2002 – 2006" }
+  ],
+  certs: [
+    "Professional Scrum Product Owner™ I (PSPO I)",
+    "Enterprise Design Thinking Practitioner",
+    "Enterprise Design Thinking Co-Creator",
+    "Microsoft Dynamics CRM Customization and Configuration",
+    "Management Training"
+  ],
+  awards: ["Certificate of Excellence"],
+  languages: ["English (native or bilingual)"]
+};
+
+/* =====================================================================
+   TERMINAL ENGINE
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const out = $("#out"), screen = $("#screen"), input = $("#cmd"), typed = $("#typed"), promptEl = $("#prompt");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let skip = false, busy = true;
+const hist = []; let hIdx = 0;
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const span = (cls, t) => `<span class="${cls}">${esc(t)}</span>`;
+const cmdLink = (c, label = c) => `<span class="cmd" data-cmd="${esc(c)}" role="button" tabindex="0">${esc(label)}</span>`;
+const sleep = ms => (skip || reduced) ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
+const PS1 = `<span class="ps1">visitor@caner<span class="dim">:</span><span class="path">~</span><span class="dim">$</span></span>`;
+
+function scrollDown() { screen.scrollTop = screen.scrollHeight; }
+function line(html = "", cls = "") {
+  const d = document.createElement("div");
+  d.className = "line" + (cls ? " " + cls : "");
+  d.innerHTML = html;
+  out.appendChild(d);
+  scrollDown();
+  return d;
+}
+async function print(lines, delay = 28) {
+  for (const l of lines) {
+    if (Array.isArray(l)) line(l[0], l[1]); else line(l);
+    await sleep(delay);
+  }
+}
+async function typeText(el, text, speed = 22) {
+  for (let i = 0; i < text.length; i++) {
+    if (skip || reduced) { el.textContent = text; break; }
+    el.textContent = text.slice(0, i + 1);
+    scrollDown();
+    await sleep(speed + (Math.random() * speed * .8));
+  }
+}
+
+/* ---------- dates ---------- */
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const now = new Date();
+const ym = s => { if (!s) return [now.getFullYear(), now.getMonth() + 1]; const [y, m] = s.split("-").map(Number); return [y, m]; };
+const fmt = s => { if (!s) return "Present"; const [y, m] = ym(s); return `${MONTHS[m - 1]} ${y}`; };
+function dur(a, b) {
+  const [y1, m1] = ym(a), [y2, m2] = ym(b);
+  const t = (y2 - y1) * 12 + (m2 - m1) + 1, y = Math.floor(t / 12), m = t % 12;
+  return [y && `${y}y`, m && `${m}m`].filter(Boolean).join(" ");
+}
+function durLong(a, b) {
+  const [y1, m1] = ym(a), [y2, m2] = ym(b);
+  const t = (y2 - y1) * 12 + (m2 - m1) + 1, y = Math.floor(t / 12), m = t % 12;
+  return `${y} years, ${m} months`;
+}
+
+/* ---------- ascii banner ---------- */
+const FONT = {
+  C: ["  ____ ", " / ___|", "| |    ", "| |___ ", " \\____|"],
+  A: ["    _    ", "   / \\   ", "  / _ \\  ", " / ___ \\ ", "/_/   \\_\\"],
+  N: [" _   _ ", "| \\ | |", "|  \\| |", "| |\\  |", "|_| \\_|"],
+  E: [" _____ ", "| ____|", "|  _|  ", "| |___ ", "|_____|"],
+  R: [" ____  ", "|  _ \\ ", "| |_) |", "|  _ < ", "|_| \\_\\"],
+  G: ["  ____ ", " / ___|", "| |  _ ", "| |_| |", " \\____|"],
+  U: [" _   _ ", "| | | |", "| | | |", "| |_| |", " \\___/ "],
+  M: [" __  __ ", "|  \\/  |", "| |\\/| |", "| |  | |", "|_|  |_|"],
+  S: [" ____  ", "/ ___| ", "\\___ \\ ", " ___) |", "|____/ "],
+};
+function figlet(word) {
+  const rows = ["", "", "", "", ""];
+  for (const ch of word) {
+    const r = FONT[ch], w = Math.max(...r.map(x => x.length));
+    r.forEach((x, i) => rows[i] += x.padEnd(w));
+  }
+  return rows;
+}
+function bannerHTML() {
+  const a = figlet("CANER"), b = figlet("GUMUS");
+  const charW = 0.6, avail = out.clientWidth || 600;
+  const wide = a.map((r, i) => r + "   " + b[i]);
+  const cols = wide[0].length;
+  let rows, size;
+  const fitWide = avail / (cols * charW);
+  if (fitWide >= 9) { rows = wide; size = Math.min(15, fitWide); }
+  else { rows = [...a, ...b]; size = Math.min(15, avail / (a[0].length * charW)); }
+  return `<div class="ascii banner" style="font-size:${size.toFixed(1)}px">${esc(rows.join("\n"))}</div>`;
+}
+
+/* ---------- prompt rendering ---------- */
+function renderPrompt() {
+  const v = input.value, p = input.selectionStart ?? v.length;
+  typed.innerHTML = esc(v.slice(0, p)) + `<span class="cursor">${esc(v[p] || " ")}</span>` + esc(v.slice(p + 1));
+}
+input.addEventListener("input", renderPrompt);
+input.addEventListener("keyup", renderPrompt);
+input.addEventListener("click", renderPrompt);
+input.addEventListener("focus", () => { promptEl.classList.add("focused"); renderPrompt(); });
+input.addEventListener("blur", () => promptEl.classList.remove("focused"));
+function focusInput() { try { input.focus({ preventScroll: true }); } catch { input.focus(); } }
+
+/* =====================================================================
+   COMMANDS
+   ===================================================================== */
+const HELP = [
+  ["about", "who I am, in a nutshell"],
+  ["experience", "15+ years, 9 companies"],
+  ["timeline", "career at a glance"],
+  ["skills", "what I'm good at"],
+  ["education", "degrees"],
+  ["certs", "certifications & awards"],
+  ["contact", "let's talk"],
+  ["neofetch", "system info… but it's me"],
+  ["resume", "clean, printable version"],
+  ["clear", "wipe the screen"],
+];
+const THEMES = ["green", "amber", "blue", "mono"];
+
+const COMMANDS = {
+  async help() {
+    await print([
+      span("bright", "Available commands:"),
+      ...HELP.map(([c, d]) => `  ${cmdLink(c)}${" ".repeat(12 - c.length)}${span("dim", d)}`),
+      "",
+      `${span("dim", "Tips:")} Tab autocompletes · ↑/↓ for history · Ctrl+L clears`,
+      `${span("dim", "Psst…")} there are secrets. Try ${cmdLink("theme amber")}, ${cmdLink("matrix")} or ${cmdLink("sudo hire-me")}.`,
+    ], 18);
+  },
+
+  async about() {
+    await print([
+      span("dim", "# whoami"),
+      `${span("bright", DATA.name)} ${span("dim", "—")} ${span("accent", DATA.title)}`,
+      span("dim", `${DATA.tagline} · ${DATA.location}`),
+      "",
+    ], 30);
+    for (const p of DATA.summary) { const el = line("", "indent"); await typeText(el, p, 6); }
+    await print([
+      "",
+      span("bright", "Highlights reel:"),
+      ...DATA.highlights.map(([k, v]) => `<div class="pt">${span("accent", "▸ ")}${span("bright", k)} ${span("dim", "— " + v)}</div>`),
+      "",
+      `${span("dim", "Next:")} ${cmdLink("experience")} · ${cmdLink("skills")} · ${cmdLink("contact")}`,
+    ], 60);
+  },
+
+  async experience() {
+    const total = dur(DATA.careerStart, null);
+    await print([span("dim", `# ${DATA.experience.length} roles · ${total} · newest first`), ""], 20);
+    for (const job of DATA.experience) {
+      await print([
+        `${span("accent", "◆")} ${span("bright", job.role)} ${span("dim", "@")} ${span("accent", job.company)}`,
+        `<div class="indent">${span("dim", `${fmt(job.start)} – ${fmt(job.end)} · ${dur(job.start, job.end)} · ${job.place}`)}</div>`,
+        ...(job.note ? [`<div class="indent">${span("dim", "“" + job.note + "”")}</div>`] : []),
+        ...job.points.map(p => `<div class="pt">${span("dim", "▸ ")}${esc(p)}</div>`),
+        "",
+      ], 35);
+    }
+    line(`${span("dim", "See it visually:")} ${cmdLink("timeline")}`);
+  },
+
+  async timeline() {
+    const START = 2005, [ny, nm] = ym(null), END = ny + 1;
+    const cols = (END - START) * 2, label = 16;
+    const idx = s => { const [y, m] = ym(s); return (y - START) * 2 + (m >= 7 ? 1 : 0); };
+    const groups = [];
+    for (const j of DATA.experience) {
+      const g = groups.find(x => x.company === j.company);
+      if (g) { g.start = j.start < g.start ? j.start : g.start; } else groups.push({ company: j.company, start: j.start, end: j.end });
+    }
+    let axis = " ".repeat(label);
+    for (let y = START; y < END; y += 5) axis += String(y).padEnd(10);
+    const rows = groups.reverse().map(g => {
+      const a = idx(g.start), b = g.end ? idx(g.end) : idx(null);
+      let bar = "";
+      for (let i = 0; i < cols; i++) bar += i >= a && i <= b ? "█" : (i % 10 === 0 ? "┊" : "·");
+      const name = g.company.length > label - 2 ? g.company.slice(0, label - 3) + "…" : g.company;
+      return `${span("bright", name.padEnd(label))}${bar.replace(/(█+)/, m => `<span class="accent">${m}</span>`).replace(/([·┊]+)/g, m => `<span class="dim">${m}</span>`)}`;
+    });
+    await print([span("dim", `# career timeline ${START} → now`), ""], 10);
+    const box = line("", "scroll-x");
+    box.innerHTML = span("dim", axis);
+    for (const r of rows) { box.innerHTML += "\n" + r; scrollDown(); await sleep(70); }
+    await print(["", `${span("dim", "Travel → e-commerce → fintech → AI.")} ${span("dim", "Each bar = time at that company.")}`]);
+  },
+
+  async skills() {
+    await print([span("dim", "# self-assessed — loading skill modules…"), ""], 20);
+    const W = window.innerWidth < 640 ? 12 : 22, lab = window.innerWidth < 640 ? 22 : 30;
+    const bars = [];
+    for (const [name, lvl] of DATA.skills) {
+      const n = name.length > lab - 1 ? name.slice(0, lab - 2) + "…" : name;
+      const el = line(`${span("bright", n.padEnd(lab))}<span class="bar"></span>`, "scroll-x");
+      bars.push([el.querySelector(".bar"), lvl]);
+      await sleep(40);
+    }
+    const draw = (el, v) => {
+      const f = Math.round(v / 100 * W);
+      el.innerHTML = `${span("dim", "[")}${span("accent", "█".repeat(f))}${span("dim", "░".repeat(W - f) + "]")} ${String(Math.round(v)).padStart(3)}%`;
+    };
+    const frames = (skip || reduced) ? 1 : 40;
+    for (let f = 1; f <= frames; f++) {
+      const t = 1 - Math.pow(1 - f / frames, 3);
+      bars.forEach(([el, v]) => draw(el, v * t));
+      await sleep(22);
+    }
+    bars.forEach(([el, v]) => draw(el, v));
+    await print(["", span("bright", "Also fluent in:"), `<div style="white-space:normal">${DATA.tags.map(t => span("tag", t)).join("")}</div>`]);
+  },
+
+  async education() {
+    await print([span("dim", "# education"), ""], 20);
+    for (const e of DATA.education) {
+      await print([
+        `${span("accent", "🎓")} ${span("bright", e.degree)}`,
+        `<div class="indent">${span("dim", `${e.school} · ${e.years}`)}</div>`, ""
+      ], 60);
+    }
+    line(`${span("dim", "Languages:")} ${esc(DATA.languages.join(", "))}`);
+  },
+
+  async certs() {
+    await print([
+      span("dim", "# certifications"),
+      ...DATA.certs.map(c => `<div class="pt">${span("accent", "✔ ")}${esc(c)}</div>`),
+      "",
+      span("dim", "# honors & awards"),
+      ...DATA.awards.map(a => `<div class="pt">${span("accent", "★ ")}${esc(a)}</div>`),
+    ], 70);
+  },
+
+  async contact() {
+    await print([
+      span("dim", "# open a connection"),
+      "",
+      `  ${span("accent", "email   ")} <a href="mailto:${DATA.email}">${esc(DATA.email)}</a>`,
+      `  ${span("accent", "linkedin")} <a href="${DATA.linkedin}" target="_blank" rel="noopener">${esc(DATA.linkedin.replace("https://www.", ""))}</a>`,
+      `  ${span("accent", "location")} ${esc(DATA.location)}`,
+      "",
+      span("dim", "Response time: faster than a CI pipeline."),
+    ], 60);
+  },
+
+  async neofetch() {
+    const logo = FONT.C.map((r, i) => r.padEnd(7) + " " + FONT.G[i]);
+    const theme = document.documentElement.dataset.theme || "green";
+    const info = [
+      `${span("accent", "caner")}${span("dim", "@")}${span("accent", "istanbul")}`,
+      span("dim", "──────────────"),
+      ["OS", "ProductOS 15+ LTS"],
+      ["Host", "Softtech · İş Bankası group"],
+      ["Uptime", durLong(DATA.careerStart, null) + " (career)"],
+      ["Kernel", "MSc Big Data Analytics & Mgmt"],
+      ["Shell", "scrum (PSPO I, PAL)"],
+      ["Packages", "genai, agentic-ai, data, ux, gtm"],
+      ["Domains", "travel, e-commerce, fintech"],
+      ["Locale", "en (native/bilingual) · TR"],
+      ["Theme", `${theme}-phosphor [CRT]`],
+      "",
+      ["#ff5f6d", "#ffd166", "#39ff7a", "#5fd7ff", "#7c8cff", "#ff79c6", "#e6e6e6"].map(c => `<span class="swatch" style="background:${c}"></span>`).join(""),
+    ].map(x => Array.isArray(x) ? `${span("accent", (x[0] + ":").padEnd(10))}${esc(x[1])}` : x);
+    const narrow = window.innerWidth < 640;
+    const rows = [];
+    const L = logo.length + 1;
+    for (let i = 0; i < Math.max(L, info.length); i++) {
+      const left = narrow ? "" : span("bright", (logo[i] || "").padEnd(18));
+      rows.push(left + (info[i] || ""));
+    }
+    if (narrow) rows.unshift(...logo.map(r => span("bright", r)), "");
+    await print(rows.map(r => [r, "scroll-x"]), 35);
+  },
+
+  async resume() { openPlain(); line(span("dim", "Opened plain view. Press Esc to come back.")); },
+  async clear() { out.innerHTML = ""; },
+
+  async banner() { line(bannerHTML()); },
+
+  async theme(args) {
+    const t = (args[0] || "").toLowerCase();
+    if (!THEMES.includes(t)) {
+      return print([`usage: theme <${THEMES.join("|")}>`, `current: ${span("accent", document.documentElement.dataset.theme || "green")}`, THEMES.map(x => cmdLink("theme " + x, x)).join("  ")]);
+    }
+    setTheme(t);
+    document.body.classList.add("glitch");
+    setTimeout(() => document.body.classList.remove("glitch"), 750);
+    line(`Phosphor swapped → ${span("accent", t)}. ${span("dim", "Very retro.")}`);
+  },
+
+  async matrix() { await runMatrix(); line(span("dim", "Wake up, visitor… the Matrix has your next hire.")); },
+
+  async sudo(args) {
+    const what = args.join(" ").toLowerCase();
+    if (what === "hire-me" || what === "hire me" || what === "hire caner") {
+      const pw = line(span("dim", "[sudo] password for visitor: "));
+      for (let i = 0; i < 8; i++) { pw.innerHTML += "•"; await sleep(70); }
+      await print([
+        `Verifying recruiter credentials ........ ${span("ok", "OK")}`,
+        `Checking headcount budget .............. ${span("ok", "OK")}`,
+        `Compiling 15 years of experience ....... ${span("ok", "OK")}`,
+        `Scheduling coffee ☕ .................... ${span("ok", "OK")}`,
+      ], 320);
+      confetti();
+      await print([
+        "",
+        span("bright", "ACCESS GRANTED. Excellent decision. 🎉"),
+        `Next step → <a href="mailto:${DATA.email}?subject=${encodeURIComponent("Let's talk — found you via your terminal")}">${esc(DATA.email)}</a>`,
+      ], 120);
+      return;
+    }
+    if (!what) return line("usage: sudo <command>");
+    line(span("err", `visitor is not in the sudoers file. This incident will be reported.`));
+    line(span("dim", `(hint: there is exactly one sudo command that works here: sudo hire-me)`));
+  },
+
+  async ls() {
+    line(["about.txt", "experience/", "timeline.log", "skills.json", "education.txt", "certs/", "contact.vcf", "resume.pdf", ".secrets"]
+      .map(f => f.endsWith("/") ? span("accent", f) : f.startsWith(".") ? span("dim", f) : span("bright", f)).join("   "));
+  },
+  async cat(args) {
+    const f = (args[0] || "").replace(/^\.\//, "").replace(/\/$/, "").replace(/\.(txt|log|json|vcf|pdf)$/, "");
+    if (f === ".secrets") return COMMANDS.secrets();
+    if (COMMANDS[f] && ["about", "experience", "timeline", "skills", "education", "certs", "contact", "resume"].includes(f)) return COMMANDS[f]();
+    line(args[0] ? span("err", `cat: ${args[0]}: No such file or directory`) : "usage: cat <file>  (try ls)");
+  },
+  async secrets() {
+    await print([
+      span("dim", "# you found the secrets file 👀"),
+      `  ${cmdLink("matrix")}          follow the white rabbit`,
+      `  ${cmdLink("theme amber")}     also: green · blue · mono`,
+      `  ${cmdLink("sudo hire-me")}    the best command`,
+      `  ${cmdLink("coffee")}          fuel`,
+      `  ${cmdLink("banner")}          the big letters again`,
+      `  ${span("bright", "rm -rf /")}        please don't`,
+    ], 40);
+  },
+  async coffee() {
+    await print([[String.raw`      ( (
+       ) )
+    ........
+    |      |]
+    \      /
+     '----'`, "ascii accent"], span("dim", "Brewing… product decisions taste better with coffee.")], 80);
+  },
+  async whoami() { line(`visitor — but the real question is ${cmdLink("about")}`); },
+  async pwd() { line("/home/caner/resume"); },
+  async date() { line(new Date().toString()); },
+  async echo(args) { line(esc(args.join(" "))); },
+  async uname() { line("ProductOS 15.0-LTS caner x86_64 GNU/Agile"); },
+  async history() { await print(hist.map((h, i) => `${span("dim", String(i + 1).padStart(4))}  ${esc(h)}`), 8); },
+  async cd() { line(span("dim", "No need to go anywhere — everything's right here.")); },
+  async exit() { line(`There is no escape. Maybe try ${cmdLink("contact")} instead? 😉`); },
+  async hello() { line(`Hey there 👋 — type ${cmdLink("help")} to look around.`); },
+  async rm(args) {
+    if (args.join(" ").includes("-rf")) {
+      document.body.classList.add("glitch");
+      await print([span("err", "rm: deleting career…"), span("err", "rm: deleting ambition…")], 300);
+      setTimeout(() => document.body.classList.remove("glitch"), 700);
+      await sleep(400);
+      return line(span("ok", "Just kidding. Everything is backed up. Twice."));
+    }
+    line(span("err", "rm: permission denied"));
+  },
+  async vim() { line(span("dim", "You're now stuck in vim. Just kidding — type :q… or don't, nothing happens here.")); },
+  async man(args) { line(args[0] ? `No manual entry for ${esc(args[0])}. Try ${cmdLink("help")}.` : "What manual page do you want?"); },
+};
+const ALIASES = {
+  "?": "help", h: "help", commands: "help",
+  "about-me": "about", bio: "about", summary: "about", info: "about",
+  exp: "experience", work: "experience", jobs: "experience", career: "experience",
+  skill: "skills", stack: "skills",
+  edu: "education", school: "education",
+  cert: "certs", certifications: "certs", awards: "certs",
+  email: "contact", mail: "contact", linkedin: "contact", hire: "contact",
+  cv: "resume", plain: "resume", print: "resume", pdf: "resume",
+  cls: "clear", hi: "hello", hey: "hello", "hello!": "hello",
+  emacs: "vim", nano: "vim", ":q": "vim", logout: "exit", quit: "exit",
+  fetch: "neofetch", tea: "coffee", ".secrets": "secrets",
+};
+const VISIBLE = HELP.map(h => h[0]);
+const ALL = [...Object.keys(COMMANDS), ...Object.keys(ALIASES)];
+
+function lev(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+async function run(raw) {
+  const text = raw.trim();
+  line(`${PS1} ${span("bright", raw)}`);
+  if (!text) return;
+  hist.push(text); hIdx = hist.length;
+  const [name, ...args] = text.split(/\s+/);
+  let key = name.toLowerCase();
+  if (key === "sudo" && args[0] && args[0].toLowerCase() === "rm") key = "rm";
+  key = ALIASES[key] || key;
+  const fn = COMMANDS[key];
+  busy = true; skip = false; promptEl.classList.add("waiting");
+  try {
+    if (fn) await fn(args, text);
+    else {
+      const guess = [...VISIBLE, ...Object.keys(COMMANDS)].map(c => [c, lev(key, c)]).sort((a, b) => a[1] - b[1])[0];
+      line(`${span("err", "zsh: command not found:")} ${esc(name)}`);
+      if (guess && guess[1] <= 2) line(`Did you mean ${cmdLink(guess[0])}?`);
+      else line(`Type ${cmdLink("help")} to see what's available.`);
+    }
+  } catch (e) {
+    line(span("err", "segfault (core dumped): " + e.message));
+  } finally {
+    if (key !== "clear") line("");
+    busy = false; skip = false;
+    promptEl.classList.remove("waiting");
+    renderPrompt(); scrollDown();
+  }
+}
+
+/* ---------- input handling ---------- */
+input.addEventListener("keydown", e => {
+  if (busy) return;
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const v = input.value; input.value = ""; renderPrompt(); run(v);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (hIdx > 0) { hIdx--; input.value = hist[hIdx]; }
+    requestAnimationFrame(() => { input.setSelectionRange(input.value.length, input.value.length); renderPrompt(); });
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (hIdx < hist.length - 1) { hIdx++; input.value = hist[hIdx]; } else { hIdx = hist.length; input.value = ""; }
+    renderPrompt();
+  } else if (e.key === "Tab") {
+    e.preventDefault();
+    const v = input.value.toLowerCase();
+    if (!v) return;
+    if (v.startsWith("theme ")) {
+      const p = v.slice(6), m = THEMES.filter(t => t.startsWith(p));
+      if (m.length === 1) input.value = "theme " + m[0];
+      renderPrompt(); return;
+    }
+    const pool = [...new Set([...VISIBLE, ...Object.keys(COMMANDS)])];
+    const m = pool.filter(c => c.startsWith(v));
+    if (m.length === 1) input.value = m[0] + " ";
+    else if (m.length > 1) {
+      let pre = m[0];
+      for (const x of m) while (!x.startsWith(pre)) pre = pre.slice(0, -1);
+      if (pre.length > v.length) input.value = pre;
+      else { line(`${PS1} ${esc(input.value)}`); line(m.map(x => cmdLink(x)).join("   ")); }
+    }
+    renderPrompt();
+  } else if (e.ctrlKey && e.key.toLowerCase() === "l") {
+    e.preventDefault(); out.innerHTML = "";
+  } else if (e.ctrlKey && e.key.toLowerCase() === "c") {
+    e.preventDefault(); line(`${PS1} ${esc(input.value)}^C`); input.value = ""; renderPrompt();
+  }
+});
+document.addEventListener("keydown", e => {
+  if ($("#plain").classList.contains("open")) { if (e.key === "Escape") closePlain(); return; }
+  if (busy) { skip = true; if (e.key === " " || e.key === "Enter") e.preventDefault(); return; }
+  if (document.activeElement !== input && !e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement?.tagName !== "BUTTON") focusInput();
+});
+screen.addEventListener("click", e => {
+  const c = e.target.closest("[data-cmd]");
+  if (c) { if (!busy) autoRun(c.dataset.cmd); return; }
+  if (busy) { skip = true; return; }
+  if (e.target.closest("a")) return;
+  if (!String(getSelection())) focusInput();
+});
+screen.addEventListener("keydown", e => {
+  const c = e.target.closest?.("[data-cmd]");
+  if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); if (!busy) autoRun(c.dataset.cmd); }
+});
+
+async function autoRun(cmd) {
+  if (busy) return;
+  busy = true;
+  input.value = "";
+  for (const ch of cmd) { input.value += ch; renderPrompt(); await sleep(38); }
+  await sleep(120);
+  busy = false;
+  const v = input.value; input.value = ""; renderPrompt();
+  await run(v);
+  focusInput();
+}
+
+/* ---------- chips ---------- */
+const chips = $("#chips");
+["about", "experience", "timeline", "skills", "education", "certs", "contact", "help"].forEach(c => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = c;
+  b.addEventListener("click", () => autoRun(c));
+  chips.appendChild(b);
+});
+
+/* ---------- themes ---------- */
+function setTheme(t) {
+  if (t === "green") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("cg-theme", t); } catch {}
+}
+try { const t = localStorage.getItem("cg-theme"); if (t && THEMES.includes(t)) setTheme(t); } catch {}
+
+/* ---------- matrix rain ---------- */
+function runMatrix() {
+  return new Promise(resolve => {
+    const cv = $("#matrix"), ctx = cv.getContext("2d");
+    cv.style.display = "block";
+    const fs = 16;
+    const resize = () => { cv.width = innerWidth; cv.height = innerHeight; };
+    resize();
+    let drops = Array(Math.ceil(cv.width / fs)).fill(0).map(() => Math.random() * -50);
+    const chars = "アカサタナハマヤラワ0123456789CANERGUMUSPRODUCTAI<>/{}=+*".split("");
+    const color = getComputedStyle(document.documentElement).getPropertyValue("--fg").trim() || "#39ff7a";
+    let raf, t0 = performance.now(), last = 0;
+    const msg = "PRODUCT · AI · DATA";
+    function frame(t) {
+      if (t - last > 45) {
+        last = t;
+        ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.font = `${fs}px JetBrains Mono, monospace`;
+        drops.forEach((y, i) => {
+          ctx.fillStyle = Math.random() > .975 ? "#fff" : color;
+          ctx.fillText(chars[(Math.random() * chars.length) | 0], i * fs, y * fs);
+          drops[i] = y * fs > cv.height && Math.random() > .975 ? 0 : y + 1;
+        });
+        if (t - t0 > 2500) {
+          ctx.font = `bold ${Math.min(48, innerWidth / 14)}px JetBrains Mono, monospace`;
+          ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.shadowColor = color; ctx.shadowBlur = 20;
+          ctx.fillText(msg, cv.width / 2, cv.height / 2);
+          ctx.shadowBlur = 0; ctx.textAlign = "start";
+        }
+      }
+      if (skip || t - t0 > 9000) return stop();
+      raf = requestAnimationFrame(frame);
+    }
+    function stop() {
+      cancelAnimationFrame(raf);
+      cv.style.display = "none"; ctx.clearRect(0, 0, cv.width, cv.height);
+      cv.removeEventListener("click", onClick); removeEventListener("resize", resize);
+      resolve();
+    }
+    const onClick = () => { skip = true; };
+    cv.addEventListener("click", onClick);
+    addEventListener("resize", resize);
+    if (reduced) { setTimeout(stop, 1200); } else raf = requestAnimationFrame(frame);
+  });
+}
+
+/* ---------- confetti ---------- */
+function confetti() {
+  if (reduced) return;
+  const glyphs = ["*", "+", "✦", "★", "$", "#", "@", "%", "✓", "♥"];
+  const colors = ["#39ff7a", "#ffd166", "#5fd7ff", "#ff79c6", "#ff5f6d", "#ffffff"];
+  for (let i = 0; i < 90; i++) {
+    const s = document.createElement("span");
+    s.className = "confetti";
+    s.textContent = glyphs[(Math.random() * glyphs.length) | 0];
+    s.style.left = Math.random() * 100 + "vw";
+    s.style.color = colors[(Math.random() * colors.length) | 0];
+    s.style.fontSize = 12 + Math.random() * 18 + "px";
+    s.style.setProperty("--dx", (Math.random() * 200 - 100) + "px");
+    s.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+    s.style.animationDuration = 1.8 + Math.random() * 2 + "s";
+    s.style.animationDelay = Math.random() * .6 + "s";
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 4500);
+  }
+}
+
+/* ---------- plain view ---------- */
+function buildPlain() {
+  const e = esc;
+  return `<div class="wrap">
+    <div class="bar"><button type="button" onclick="window.print()">Print / Save PDF</button><button type="button" onclick="closePlain()">← Back to terminal</button></div>
+    <h1>${e(DATA.name)}</h1>
+    <p class="sub">${e(DATA.title)} · ${e(DATA.tagline)}</p>
+    <p class="sub">${e(DATA.location)}</p>
+    <p class="contact"><a href="mailto:${e(DATA.email)}">${e(DATA.email)}</a> · <a href="${e(DATA.linkedin)}" target="_blank" rel="noopener">${e(DATA.linkedin.replace("https://www.", ""))}</a></p>
+    <h2>Summary</h2>${DATA.summary.map(p => `<p>${e(p)}</p>`).join("")}
+    <h2>Experience</h2>
+    ${DATA.experience.map(j => `<div class="job">
+      <div class="job-h"><b>${e(j.role)} · ${e(j.company)}</b><span class="when">${fmt(j.start)} – ${fmt(j.end)} · ${dur(j.start, j.end)}</span></div>
+      ${j.note ? `<p style="color:#6b685f;font-size:14px">${e(j.note)}</p>` : ""}
+      <ul>${j.points.map(p => `<li>${e(p)}</li>`).join("")}</ul></div>`).join("")}
+    <h2>Education</h2>
+    ${DATA.education.map(ed => `<div class="job"><div class="job-h"><b>${e(ed.degree)}</b><span class="when">${e(ed.years)}</span></div><div>${e(ed.school)}</div></div>`).join("")}
+    <h2>Certifications & Awards</h2>
+    <ul>${[...DATA.certs, ...DATA.awards].map(c => `<li>${e(c)}</li>`).join("")}</ul>
+    <h2>Skills</h2><p>${[...DATA.skills.map(s => s[0]), ...DATA.tags].map(e).join(" · ")}</p>
+    <h2>Languages</h2><p>${DATA.languages.map(e).join(", ")}</p>
+  </div>`;
+}
+function openPlain() { const p = $("#plain"); p.innerHTML = buildPlain(); p.classList.add("open"); p.scrollTop = 0; }
+function closePlain() { $("#plain").classList.remove("open"); focusInput(); }
+$("#plainBtn").addEventListener("click", openPlain);
+
+/* =====================================================================
+   BOOT SEQUENCE
+   ===================================================================== */
+async function boot() {
+  const skipBoot = () => { skip = true; };
+  addEventListener("click", skipBoot); addEventListener("touchstart", skipBoot, { passive: true });
+
+  const dots = (label, status = "OK", w = 44) => `${esc(label)} ${span("dim", ".".repeat(Math.max(3, w - label.length)))} ${span("ok", status)}`;
+  if (!reduced) {
+    await print([
+      span("bright", "CG-BIOS v15.0  (c) 2005–" + now.getFullYear() + " Caner Gümüş Systems"),
+      span("dim", "Press any key to skip"),
+      "",
+    ], 120);
+    const mem = line("Memory test: ");
+    for (let k = 0; k <= 640; k += 64) { mem.innerHTML = `Memory test: ${k}K roadmaps`; await sleep(35); }
+    mem.innerHTML += " " + span("ok", "OK");
+    await print([
+      dots("CPU: Product Brain @ 15+ yrs"),
+      dots("Detecting coffee", "FOUND"),
+      dots("Loading modules: genai agentic-ai data ux"),
+      dots("Mounting /career"),
+      dots("Connecting stakeholders", "ALIGNED"),
+      dots("Starting resume daemon"),
+    ], 170);
+    await sleep(500);
+    out.innerHTML = "";
+  }
+
+  line(bannerHTML());
+  await sleep(150);
+  const t1 = line("", "bright");
+  await typeText(t1, `${DATA.name} — ${DATA.title}`, 28);
+  const t2 = line("", "dim");
+  await typeText(t2, `${DATA.tagline} · ${DATA.location}`, 12);
+  line("");
+  line(`Welcome! This is an interactive terminal. Type ${cmdLink("help")} or tap a command below.`);
+  line(`${span("dim", "Just want the facts?")} ${cmdLink("resume", "open the plain resume")}`);
+  line("");
+
+  removeEventListener("click", skipBoot); removeEventListener("touchstart", skipBoot);
+  busy = false; skip = false;
+  promptEl.classList.remove("waiting");
+  renderPrompt();
+  if (matchMedia("(hover: hover)").matches) focusInput();
+
+  if (new URLSearchParams(location.search).has("plain")) openPlain();
+}
+
+let resizeT;
+addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => {
+  const b = out.querySelector(".banner"); if (b) b.outerHTML = bannerHTML();
+}, 150); });
+
+document.fonts?.ready.then(boot) ?? boot();
+</script>
+</body>
+</html>
