@@ -676,9 +676,51 @@ const COMMANDS = {
       `  ${cmdLink("theme amber")}     also: green · blue · mono`,
       `  ${cmdLink("sudo hire-me")}    the best command`,
       `  ${cmdLink("coffee")}          fuel`,
+      `  ${cmdLink("fly")}             15 years of travel tech, one flight`,
       `  ${cmdLink("banner")}          the big letters again`,
       `  ${span("bright", "rm -rf /")}        please don't`,
     ], 40);
+  },
+  async fly() {
+    const fs = parseFloat(getComputedStyle(out).fontSize) || 15;
+    const cols = Math.max(24, Math.min(64, Math.floor(out.clientWidth / (fs * 0.6)) - 2));
+    await print([span("dim", "# now boarding: flight CG2005 → your inbox"), ""], 40);
+    const sky = line("", "scroll-x dim"), air = line("", "scroll-x"), ground = line("", "scroll-x dim");
+    const clouds = (" ".repeat(6) + "☁︎" + " ".repeat(13) + "☁︎" + " ".repeat(9)).repeat(4);
+    ground.textContent = "FTH " + "▁".repeat(cols - 8) + " IST";
+    for (let x = 0; x <= cols - 2; x++) {
+      if (skip || reduced) x = cols - 2;
+      const off = x % 30;
+      sky.textContent = clouds.slice(off, off + cols);
+      const alt = x < 6 ? 0 : 1; // take-off bump
+      air.innerHTML = span("dim", (alt ? " " : "") + "·".repeat(Math.max(0, x - alt))) + span("bright", "✈︎");
+      scrollDown();
+      await sleep(28);
+    }
+    const W = 50, row = (k, v) => "║  " + span("accent", k.padEnd(11)) + esc(v.padEnd(W - 13).slice(0, W - 13)) + "║";
+    const bar = Array.from({ length: W - 4 }, () => "▌▐█▍ "[(Math.random() * 5) | 0]).join("");
+    const pass = [
+      "╔" + "═".repeat(W) + "╗",
+      "║  " + span("bright", "CG AIRWAYS · BOARDING PASS".padEnd(W - 2)) + "║",
+      "╠" + "═".repeat(W) + "╣",
+      row("PASSENGER", "VISITOR / RECRUITER"),
+      row("FROM", "FTH  Fethiye — TUI rep, 2005"),
+      row("VIA", "Vanilla Tours · BiletBank · Teknasyon"),
+      row("", "Travelbuild · Metglobal · obilet.com"),
+      row("TO", "IST  Product Lead @ Softtech"),
+      row("FLIGHT", "CG2005   SEAT 1A   CLASS AI"),
+      row("GATE", "contact  ·  BOARDING NOW"),
+      "║  " + span("dim", bar) + "  ║",
+      "╚" + "═".repeat(W) + "╝",
+    ];
+    await sleep(200);
+    await print(pass.map(p => [p, "scroll-x"]), 45);
+    await print([
+      "",
+      `${span("dim", "Fun fact:")} the career started as a holiday rep in Fethiye and never left travel —`,
+      span("dim", "tours, flights, bus tickets, travel APIs… and now AI."),
+      `Gate is closing. Please proceed to ${cmdLink("contact")} ✈︎`,
+    ], 60);
   },
   async coffee() {
     await print([[String.raw`      ( (
@@ -722,6 +764,7 @@ const ALIASES = {
   cls: "clear", hi: "hello", hey: "hello", "hello!": "hello",
   emacs: "vim", nano: "vim", ":q": "vim", logout: "exit", quit: "exit",
   fetch: "neofetch", tea: "coffee", ".secrets": "secrets",
+  travel: "fly", flight: "fly", plane: "fly", vacation: "fly", "boarding-pass": "fly",
 };
 const VISIBLE = HELP.map(h => h[0]);
 const ALL = [...Object.keys(COMMANDS), ...Object.keys(ALIASES)];
@@ -804,6 +847,7 @@ input.addEventListener("keydown", e => {
 });
 document.addEventListener("keydown", e => {
   if ($("#plain").classList.contains("open")) { if (e.key === "Escape") closePlain(); return; }
+  if (e.target === input && e.key === "Enter") return; // the Enter that starts a command must not skip it
   if (busy) { skip = true; if (e.key === " " || e.key === "Enter") e.preventDefault(); return; }
   if (document.activeElement !== input && !e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement?.tagName !== "BUTTON") focusInput();
 });
